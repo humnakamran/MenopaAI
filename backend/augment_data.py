@@ -18,9 +18,11 @@ from collections import Counter
 
 np.random.seed(42)
 
-CSV_PATH = r"..\data\research survey.csv (1)\research survey.csv"
-OUTPUT_PATH = r"..\data\synthetic_augmented_data.csv"
-TARGET_TOTAL = 500  # total rows in final dataset
+CSV_PATH    = r"../fyp (Responses) - Form responses 1.csv"
+OUTPUT_PATH = r"../data/synthetic_augmented_data.csv"
+TARGET_TOTAL = 600  # total rows in final dataset
+
+os.makedirs(os.path.dirname(OUTPUT_PATH), exist_ok=True)
 
 # ── Load original ──────────────────────────────────────────────────────────────
 df = pd.read_csv(CSV_PATH)
@@ -62,13 +64,13 @@ def add_noise(values, noise_pct=0.15):
 cols = df.columns.tolist()
 
 # Numeric-ish columns (add noise)
-NUMERIC_COLS_IDX = [2, 12, 13, 15, 59]  # age, height, weight, menarche_age, stress
+NUMERIC_COLS_IDX = [2, 10, 11, 13, 60]  # age, height, weight, menarche_age, stress
 
 # Categorical columns (sample from distribution)
 # Everything else is categorical
 
-# Symptom columns (cols 20-35) — need to be coherent with menstrual status
-SYMPTOM_COLS_IDX = list(range(20, 36))
+# Symptom columns (cols 18-34) — need to be coherent with menstrual status
+SYMPTOM_COLS_IDX = list(range(18, 35))
 
 # ── Generate synthetic rows ──────────────────────────────────────────────────
 synth_rows = []
@@ -92,19 +94,19 @@ for i in range(n_synth):
     row[cols[2]] = str(age)
 
     # 5. Height/Weight with noise
-    row[cols[12]] = str(round(np.random.choice(df.iloc[:, 12].apply(to_num).dropna().values) + np.random.normal(0, 5), 1))
-    row[cols[13]] = str(round(np.random.choice(df.iloc[:, 13].apply(to_num).dropna().values) + np.random.normal(0, 5), 1))
+    row[cols[10]] = str(round(np.random.choice(df.iloc[:, 10].apply(to_num).dropna().values) + np.random.normal(0, 5), 1))
+    row[cols[11]] = str(round(np.random.choice(df.iloc[:, 11].apply(to_num).dropna().values) + np.random.normal(0, 5), 1))
 
     # 6. Menarche age with noise
-    menarche = np.random.choice(df.iloc[:, 15].apply(to_num).dropna().values)
-    row[cols[15]] = str(int(np.clip(menarche + np.random.normal(0, 1), 9, 18)))
+    menarche = np.random.choice(df.iloc[:, 13].apply(to_num).dropna().values)
+    row[cols[13]] = str(int(np.clip(menarche + np.random.normal(0, 1), 9, 18)))
 
     # 7. Stress level with noise
-    stress = np.random.choice(df.iloc[:, 59].apply(to_num).dropna().values)
-    row[cols[59]] = str(int(np.clip(stress + np.random.normal(0, 0.8), 0, 5)))
+    stress = np.random.choice(df.iloc[:, 60].apply(to_num).dropna().values)
+    row[cols[60]] = str(int(np.clip(stress + np.random.normal(0, 0.8), 0, 5)))
 
     # 8. Make menstrual status coherent with age
-    menstrual_col = cols[17]
+    menstrual_col = cols[15]
     if age < 40:
         row[menstrual_col] = np.random.choice(["regular periods", "irregular periods"], p=[0.7, 0.3])
     elif age < 48:
@@ -133,14 +135,14 @@ for i in range(n_synth):
         row[cols[idx]] = np.random.choice(symptom_options, p=symptom_weights)
 
     # 10. Early menopause coherence
-    early_col = cols[19]
+    early_col = cols[17]
     if age < 45 and "no periods" in status:
         row[early_col] = "Yes"
     elif age >= 50 and "no periods" in status:
         row[early_col] = "No"
 
     # 11. Menopause age coherence
-    meno_age_col = cols[18]
+    meno_age_col = cols[16]
     if "no periods" in status and age >= 40:
         meno_age = int(np.clip(age - np.random.randint(0, 8), 38, age))
         row[meno_age_col] = str(meno_age)
@@ -148,9 +150,9 @@ for i in range(n_synth):
         row[meno_age_col] = np.random.choice(["No", "", "Not applicable", "N/A"])
 
     # 12. Pregnancy numbers coherence
-    preg_col = cols[36]
-    births_col = cols[37]
-    misc_col = cols[38]
+    preg_col = cols[35]
+    births_col = cols[36]
+    misc_col = cols[37]
     preg = np.random.choice(["0", "1-2", "3-4", "5+"], p=[0.15, 0.3, 0.35, 0.2])
     row[preg_col] = preg
 
@@ -178,6 +180,6 @@ print(f"Age (original):  mean={df.iloc[:, 2].apply(to_num).mean():.1f}, std={df.
 print(f"Age (augmented): mean={final_df.iloc[:, 2].apply(to_num).mean():.1f}, std={final_df.iloc[:, 2].apply(to_num).std():.1f}")
 
 print(f"\nMenstrual status (original):")
-print(df.iloc[:, 17].value_counts(normalize=True).to_string())
+print(df.iloc[:, 15].value_counts(normalize=True).to_string())
 print(f"\nMenstrual status (augmented):")
-print(final_df.iloc[:, 17].value_counts(normalize=True).to_string())
+print(final_df.iloc[:, 15].value_counts(normalize=True).to_string())

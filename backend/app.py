@@ -23,20 +23,14 @@ CORS(app)
 
 MODEL_DIR = "models"
 
-# ── Load models ───────────────────────────────────────────────────────────────
-clf_stage    = joblib.load(f"{MODEL_DIR}/clf_stage.pkl")
-clf_sev      = joblib.load(f"{MODEL_DIR}/clf_severity.pkl")
-clf_osteo    = joblib.load(f"{MODEL_DIR}/clf_osteo.pkl")
-clf_cardio   = joblib.load(f"{MODEL_DIR}/clf_cardio.pkl")
-clf_hormonal = joblib.load(f"{MODEL_DIR}/clf_hormonal.pkl")
-clf_repro    = joblib.load(f"{MODEL_DIR}/clf_repro.pkl")
+# ── Load models (Stage, Cardio, Repro are ML; Severity/Osteo/Hormonal = rules)
+clf_stage  = joblib.load(f"{MODEL_DIR}/clf_stage.pkl")
+clf_cardio = joblib.load(f"{MODEL_DIR}/clf_cardio.pkl")
+clf_repro  = joblib.load(f"{MODEL_DIR}/clf_repro.pkl")
 
-le_stage    = joblib.load(f"{MODEL_DIR}/le_stage.pkl")
-le_sev      = joblib.load(f"{MODEL_DIR}/le_severity.pkl")
-le_osteo    = joblib.load(f"{MODEL_DIR}/le_osteo.pkl")
-le_cardio   = joblib.load(f"{MODEL_DIR}/le_cardio.pkl")
-le_hormonal = joblib.load(f"{MODEL_DIR}/le_hormonal.pkl")
-le_repro    = joblib.load(f"{MODEL_DIR}/le_repro.pkl")
+le_stage  = joblib.load(f"{MODEL_DIR}/le_stage.pkl")
+le_cardio = joblib.load(f"{MODEL_DIR}/le_cardio.pkl")
+le_repro  = joblib.load(f"{MODEL_DIR}/le_repro.pkl")
 feature_cols = joblib.load(f"{MODEL_DIR}/feature_cols.pkl")
 
 # ── Load accuracy & feature importance ────────────────────────────────────────
@@ -110,6 +104,41 @@ def stress_enc(s):
     try: return int(n)
     except: return 2
 
+# ── Rule-based predictors (no ML needed — deterministic from inputs) ───────────
+def compute_severity(sym_score):
+    if sym_score <= 3:  return "Mild"
+    if sym_score <= 7:  return "Moderate"
+    return "Severe"
+
+def compute_osteo_risk(d, stage, bmi):
+    score = 0
+    age = to_num(d.get("age", 40));
+    if np.isnan(age): age = 40
+    if age > 55:   score += 2
+    elif age > 45: score += 1
+    diagnoses = str(d.get("diagnoses", "")).lower()
+    fam_hist  = str(d.get("family_history", "")).lower()
+    if "osteoporosis" in diagnoses or "osteoporosis" in fam_hist: score += 3
+    if "vitamin d" in diagnoses: score += 1
+    if "post" in stage.lower():  score += 2
+    elif "peri" in stage.lower(): score += 1
+    if "sedentary" in str(d.get("physical_activity", "")).lower(): score += 1
+    if not np.isnan(bmi) and bmi < 18.5: score += 1
+    if score >= 5: return "High"
+    if score >= 3: return "Medium"
+    return "Low"
+
+def compute_hormonal(d):
+    pcos      = str(d.get("pcos_diagnosis", "")).lower()
+    symptoms  = str(d.get("pcos_symptoms", "")).lower()
+    diagnoses = str(d.get("diagnoses", "")).lower()
+    early     = str(d.get("early_menopause", "")).lower()
+    if (any(x in pcos for x in ["yes", "suspected"]) or
+        any(x in symptoms for x in ["irregular periods", "excess facial hair"]) or
+        "thyroid" in diagnoses or "yes" in early):
+        return "Yes"
+    return "No"
+
 def build_features(d):
     row = {}
     for col in SYMPTOM_COLS:
@@ -161,7 +190,7 @@ def build_features(d):
     row["fam_diabetes"]  = 1 if "diabetes" in fam_hist else 0
 
     X = pd.DataFrame([row])[feature_cols].fillna(0)
-    return X, sym_score
+    return X, sym_score, bmi
 
 def risk_to_pct(level):
     return {"Low": 25, "Medium": 60, "High": 90}.get(level, 25)
@@ -317,14 +346,17 @@ def get_feature_importance():
 def predict():
     try:
         data = request.get_json(force=True)
-        X, sym_score = build_features(data)
+        X, sym_score, bmi = build_features(data)
 
-        stage    = le_stage.inverse_transform(clf_stage.predict(X))[0]
-        severity = le_sev.inverse_transform(clf_sev.predict(X))[0]
-        osteo    = le_osteo.inverse_transform(clf_osteo.predict(X))[0]
-        cardio   = le_cardio.inverse_transform(clf_cardio.predict(X))[0]
-        hormonal = le_hormonal.inverse_transform(clf_hormonal.predict(X))[0]
-        repro    = le_repro.inverse_transform(clf_repro.predict(X))[0]
+        # ML models
+        stage  = le_stage.inverse_transform(clf_stage.predict(X))[0]
+        cardio = le_cardio.inverse_transform(clf_cardio.predict(X))[0]
+        repro  = le_repro.inverse_transform(clf_repro.predict(X))[0]
+
+        # Rule-based (deterministic — no ML needed)
+        severity = compute_severity(sym_score)
+        osteo    = compute_osteo_risk(data, stage, bmi)
+        hormonal = compute_hormonal(data)
 
         # Probabilities
         stage_proba   = clf_stage.predict_proba(X)[0]

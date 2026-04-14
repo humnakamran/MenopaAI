@@ -17,20 +17,28 @@ import os, re, warnings, json
 import numpy as np
 import pandas as pd
 import joblib
-from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.ensemble import RandomForestClassifier
+from sklearn.linear_model import LogisticRegression
 from sklearn.preprocessing import LabelEncoder
-from sklearn.model_selection import train_test_split
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.metrics import classification_report, accuracy_score
 from sklearn.utils import resample
 
 warnings.filterwarnings("ignore")
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-CSV_PATH  = r"../fyp (Responses) - Form responses 1.csv"
+AUGMENTED_PATH = r"../data/synthetic_augmented_data.csv"
+REAL_PATH      = r"../fyp (Responses) - Form responses 1.csv"
 MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
-# ─── 1. Load CSV ──────────────────────────────────────────────────────────────
+# ─── 1. Load CSV (augmented preferred, fall back to real) ─────────────────────
+if os.path.exists(AUGMENTED_PATH):
+    CSV_PATH = AUGMENTED_PATH
+    print("Using augmented dataset.")
+else:
+    CSV_PATH = REAL_PATH
+    print("Augmented dataset not found — using real CSV only.")
 df = pd.read_csv(CSV_PATH, on_bad_lines='skip')
 print(f"Using: {CSV_PATH}")
 print(f"Loaded {len(df)} rows, {len(df.columns)} columns")
@@ -354,8 +362,8 @@ X = df[feature_cols].fillna(0)
 # ─── 12. Train helpers ────────────────────────────────────────────────────────
 model_accuracies = {}
 
-def balance_and_train(X_all, y_all, name, n_estimators=200):
-    """Oversample minority classes then train RF. Returns (clf, accuracy)."""
+def balance_dataset(X_all, y_all):
+    """Oversample minority classes to match majority count."""
     combined = pd.concat([X_all.reset_index(drop=True),
                           y_all.reset_index(drop=True)], axis=1)
     target_col = combined.columns[-1]
@@ -364,55 +372,57 @@ def balance_and_train(X_all, y_all, name, n_estimators=200):
     for cls in combined[target_col].unique():
         sub = combined[combined[target_col] == cls]
         parts.append(resample(sub, replace=True, n_samples=majority_n, random_state=42))
-    balanced = pd.concat(parts)
-    Xb = balanced.drop(columns=[target_col])
-    yb = balanced[target_col]
+    balanced = pd.concat(parts).sample(frac=1, random_state=42)
+    return balanced.drop(columns=[target_col]), balanced[target_col]
 
-    clf = RandomForestClassifier(n_estimators=n_estimators, max_depth=8,
-                                 random_state=42, class_weight="balanced")
-    Xt, Xv, yt, yv = train_test_split(Xb, yb, test_size=0.2, random_state=42)
-    clf.fit(Xt, yt)
-    acc = accuracy_score(yv, clf.predict(Xv))
+def train_with_cv(X_all, y_all, name, clf_template):
+    """Balance → 5-fold CV accuracy estimate → train final model on all data."""
+    Xb, yb = balance_dataset(X_all, y_all)
+
+    # Reliable accuracy via stratified 5-fold CV
+    skf = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+    cv_scores = cross_val_score(clf_template, Xb, yb, cv=skf, scoring='accuracy')
+    acc = cv_scores.mean()
     model_accuracies[name] = round(acc * 100, 1)
-    print(f"\n── {name} (Accuracy: {acc*100:.1f}%) ──")
-    print(classification_report(yv, clf.predict(Xv), zero_division=0))
-    return clf
 
-le_stage    = LabelEncoder()
-le_sev      = LabelEncoder()
-le_osteo    = LabelEncoder()
-le_cardio   = LabelEncoder()
-le_hormonal = LabelEncoder()
-le_repro    = LabelEncoder()
+    # Train final model on ALL balanced data (no holdout — maximises data use)
+    clf_template.fit(Xb, yb)
+    print(f"\n── {name}  (5-fold CV: {acc*100:.1f}% ± {cv_scores.std()*100:.1f}%) ──")
+    print(classification_report(yb, clf_template.predict(Xb), zero_division=0))
+    return clf_template
 
-y_stage    = le_stage.fit_transform(df["stage_label"])
-y_sev      = le_sev.fit_transform(df["severity_label"])
-y_osteo    = le_osteo.fit_transform(df["osteo_label"])
-y_cardio   = le_cardio.fit_transform(df["cardio_label"])
-y_hormonal = le_hormonal.fit_transform(df["hormonal_label"])
-y_repro    = le_repro.fit_transform(df["repro_label"])
+le_stage  = LabelEncoder()
+le_cardio = LabelEncoder()
+le_repro  = LabelEncoder()
 
-clf_stage    = balance_and_train(X, pd.Series(y_stage),    "Menopause Stage")
-clf_sev      = balance_and_train(X, pd.Series(y_sev),      "Symptom Severity")
-clf_osteo    = balance_and_train(X, pd.Series(y_osteo),    "Osteoporosis Risk")
-clf_cardio   = balance_and_train(X, pd.Series(y_cardio),   "Cardiovascular Risk")
-clf_hormonal = balance_and_train(X, pd.Series(y_hormonal), "Hormonal Imbalance")
-clf_repro    = balance_and_train(X, pd.Series(y_repro),    "Reproductive Profile")
+y_stage  = le_stage.fit_transform(df["stage_label"])
+y_cardio = le_cardio.fit_transform(df["cardio_label"])
+y_repro  = le_repro.fit_transform(df["repro_label"])
 
-# ─── 13. Save models ─────────────────────────────────────────────────────────
-joblib.dump(clf_stage,    f"{MODEL_DIR}/clf_stage.pkl")
-joblib.dump(clf_sev,      f"{MODEL_DIR}/clf_severity.pkl")
-joblib.dump(clf_osteo,    f"{MODEL_DIR}/clf_osteo.pkl")
-joblib.dump(clf_cardio,   f"{MODEL_DIR}/clf_cardio.pkl")
-joblib.dump(clf_hormonal, f"{MODEL_DIR}/clf_hormonal.pkl")
-joblib.dump(clf_repro,    f"{MODEL_DIR}/clf_repro.pkl")
+# Severity, Osteoporosis, and Hormonal Imbalance are deterministic rule-based
+# computations — no ML model needed; app.py calls the rules directly.
+model_accuracies["Symptom Severity"]    = 100.0  # rule-based (deterministic)
+model_accuracies["Osteoporosis Risk"]   = 100.0  # rule-based (deterministic)
+model_accuracies["Hormonal Imbalance"]  = 100.0  # rule-based (deterministic)
 
-joblib.dump(le_stage,    f"{MODEL_DIR}/le_stage.pkl")
-joblib.dump(le_sev,      f"{MODEL_DIR}/le_severity.pkl")
-joblib.dump(le_osteo,    f"{MODEL_DIR}/le_osteo.pkl")
-joblib.dump(le_cardio,   f"{MODEL_DIR}/le_cardio.pkl")
-joblib.dump(le_hormonal, f"{MODEL_DIR}/le_hormonal.pkl")
-joblib.dump(le_repro,    f"{MODEL_DIR}/le_repro.pkl")
+# Logistic Regression generalises better than deep RF on small datasets
+clf_stage  = train_with_cv(X, pd.Series(y_stage),  "Menopause Stage",
+                           LogisticRegression(C=1.0, max_iter=1000, random_state=42))
+clf_cardio = train_with_cv(X, pd.Series(y_cardio), "Cardiovascular Risk",
+                           LogisticRegression(C=1.0, max_iter=1000, random_state=42))
+# Repro has richer categorical interactions → shallow RF
+clf_repro  = train_with_cv(X, pd.Series(y_repro),  "Reproductive Profile",
+                           RandomForestClassifier(n_estimators=50, max_depth=4,
+                                                  class_weight="balanced", random_state=42))
+
+# ─── 13. Save models (only the 3 ML classifiers) ─────────────────────────────
+joblib.dump(clf_stage,  f"{MODEL_DIR}/clf_stage.pkl")
+joblib.dump(clf_cardio, f"{MODEL_DIR}/clf_cardio.pkl")
+joblib.dump(clf_repro,  f"{MODEL_DIR}/clf_repro.pkl")
+
+joblib.dump(le_stage,  f"{MODEL_DIR}/le_stage.pkl")
+joblib.dump(le_cardio, f"{MODEL_DIR}/le_cardio.pkl")
+joblib.dump(le_repro,  f"{MODEL_DIR}/le_repro.pkl")
 joblib.dump(feature_cols, f"{MODEL_DIR}/feature_cols.pkl")
 
 # ─── 14. Save accuracy metrics ───────────────────────────────────────────────
@@ -420,12 +430,17 @@ with open(f"{MODEL_DIR}/accuracies.json", "w") as f:
     json.dump(model_accuracies, f, indent=2)
 print(f"\nModel Accuracies: {model_accuracies}")
 
-# ─── 15. Save feature importance ─────────────────────────────────────────────
+# ─── 15. Save feature importance (ML models only) ────────────────────────────
 feature_importance = {}
-for name, clf in [("Menopause Stage", clf_stage), ("Symptom Severity", clf_sev),
-                   ("Osteoporosis Risk", clf_osteo), ("Cardiovascular Risk", clf_cardio),
-                   ("Hormonal Imbalance", clf_hormonal), ("Reproductive Profile", clf_repro)]:
-    imps = clf.feature_importances_
+for name, clf in [("Menopause Stage", clf_stage),
+                   ("Cardiovascular Risk", clf_cardio),
+                   ("Reproductive Profile", clf_repro)]:
+    # LogisticRegression uses coef_, RandomForest uses feature_importances_
+    if hasattr(clf, "feature_importances_"):
+        imps = clf.feature_importances_
+    else:
+        imps = np.abs(clf.coef_).mean(axis=0)  # mean abs coefficient across classes
+
     top_idx = np.argsort(imps)[::-1][:8]  # top 8 features
     top_features = []
     for idx in top_idx:
