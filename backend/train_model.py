@@ -26,19 +26,12 @@ from sklearn.utils import resample
 warnings.filterwarnings("ignore")
 
 # ─── Paths ────────────────────────────────────────────────────────────────────
-AUGMENTED_PATH = r"..\data\synthetic_augmented_data.csv"
-ORIGINAL_PATH  = r"..\data\research survey.csv (1)\research survey.csv"
-CSV_PATH = AUGMENTED_PATH if os.path.exists(AUGMENTED_PATH) else ORIGINAL_PATH
-MODEL_DIR  = "models"
+CSV_PATH  = r"../fyp (Responses) - Form responses 1.csv"
+MODEL_DIR = "models"
 os.makedirs(MODEL_DIR, exist_ok=True)
 
 # ─── 1. Load CSV ──────────────────────────────────────────────────────────────
-try:
-    df = pd.read_csv(CSV_PATH, on_bad_lines='skip')
-except Exception as e:
-    print(f"Error loading augmented CSV: {e}, falling back to original")
-    CSV_PATH = ORIGINAL_PATH
-    df = pd.read_csv(CSV_PATH, on_bad_lines='skip')
+df = pd.read_csv(CSV_PATH, on_bad_lines='skip')
 print(f"Using: {CSV_PATH}")
 print(f"Loaded {len(df)} rows, {len(df.columns)} columns")
 
@@ -53,54 +46,56 @@ col_map = {
     df.columns[3]:  "province",
     df.columns[4]:  "area",
     df.columns[5]:  "marital_status",
-    df.columns[12]: "height_raw",
-    df.columns[13]: "weight_raw",
-    df.columns[14]: "diagnoses",
-    df.columns[15]: "menarche_age",
-    df.columns[16]: "cycle_pattern",
-    df.columns[17]: "current_menstrual_status",
-    df.columns[18]: "menopause_age",
-    df.columns[19]: "early_menopause",
-    # Symptoms (cols 20‥35 = hot flashes…recurrent UTI)
-    df.columns[20]: "hot_flashes",
-    df.columns[21]: "night_sweats",
-    df.columns[22]: "vaginal_dryness",
-    df.columns[23]: "pain_intercourse",
-    df.columns[24]: "mood_swings",
-    df.columns[25]: "anxiety",
-    df.columns[26]: "depression",
-    df.columns[27]: "irritability",
-    df.columns[28]: "sleep_disturbances",
-    df.columns[29]: "memory_issues",
-    df.columns[30]: "joint_pain",
-    df.columns[31]: "muscle_pain",
-    df.columns[32]: "fatigue",
-    df.columns[33]: "hair_thinning",
-    df.columns[34]: "weight_gain_symptom",
-    df.columns[35]: "recurrent_uti",
+    df.columns[10]: "height_raw",
+    df.columns[11]: "weight_raw",
+    df.columns[12]: "diagnoses",
+    df.columns[13]: "menarche_age",
+    df.columns[14]: "cycle_pattern",
+    df.columns[15]: "current_menstrual_status",
+    df.columns[16]: "menopause_age",
+    df.columns[17]: "early_menopause",
+    # Symptoms (cols 18‥34 = hot flashes…recurrent UTI)
+    df.columns[18]: "hot_flashes",
+    df.columns[19]: "night_sweats",
+    df.columns[20]: "vaginal_dryness",
+    df.columns[21]: "pain_intercourse",
+    df.columns[22]: "mood_swings",
+    df.columns[23]: "anxiety",
+    df.columns[24]: "depression",
+    df.columns[25]: "irritability",
+    df.columns[26]: "sleep_disturbances",
+    df.columns[27]: "memory_issues",
+    df.columns[28]: "joint_pain",
+    df.columns[29]: "muscle_pain",
+    df.columns[30]: "fatigue",
+    df.columns[31]: "hair_thinning",
+    df.columns[32]: "weight_gain_symptom",
+    # [33] = "Urinary leakage" — skipped (not in original feature set)
+    df.columns[34]: "recurrent_uti",      # "Recurrent urinary infections"
     # Reproductive
-    df.columns[36]: "num_pregnancies",
-    df.columns[37]: "live_births",
-    df.columns[38]: "miscarriages",
-    df.columns[39]: "stillbirth",
-    df.columns[40]: "ectopic",
-    df.columns[41]: "delivery_mode",
-    df.columns[42]: "breastfeeding",
-    df.columns[43]: "infertility_attempt",
-    df.columns[44]: "pcos_diagnosis",
-    df.columns[45]: "pcos_symptoms",
-    df.columns[46]: "infertility_treatment",
-    df.columns[47]: "other_conditions",
+    df.columns[35]: "num_pregnancies",
+    df.columns[36]: "live_births",
+    df.columns[37]: "miscarriages",
+    df.columns[38]: "stillbirth",
+    df.columns[39]: "ectopic",
+    df.columns[40]: "delivery_mode",
+    df.columns[41]: "breastfeeding",
+    df.columns[42]: "infertility_attempt",
+    df.columns[43]: "pcos_diagnosis",
+    df.columns[44]: "pcos_symptoms",
+    df.columns[45]: "infertility_treatment",
+    df.columns[46]: "other_conditions",
+    # Sexual / urinary
+    df.columns[48]: "decreased_libido",
+    df.columns[50]: "urinary_urgency",
     # Lifestyle
-    df.columns[49]: "decreased_libido",
-    df.columns[51]: "urinary_urgency",
-    df.columns[54]: "smoking",
-    df.columns[55]: "tobacco",
-    df.columns[56]: "physical_activity",
-    df.columns[57]: "diet",
-    df.columns[58]: "sun_exposure",
-    df.columns[59]: "stress_level",
-    df.columns[60]: "family_history",
+    df.columns[55]: "smoking",
+    df.columns[56]: "tobacco",
+    df.columns[57]: "physical_activity",
+    df.columns[58]: "diet",
+    df.columns[59]: "sun_exposure",
+    df.columns[60]: "stress_level",
+    df.columns[61]: "family_history",
 }
 df = df.rename(columns=col_map)
 
