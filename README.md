@@ -1,21 +1,23 @@
 <div align="center">
 
-# 🌸 MenopaAI 
+# 🌸 MenopaAI
 **An AI-Powered Advanced Health Assessment Platform**
 
 [![Python](https://img.shields.io/badge/Python-3.12-blue?style=for-the-badge&logo=python&logoColor=white)](#)
 [![Flask](https://img.shields.io/badge/Flask-Backend-black?style=for-the-badge&logo=flask&logoColor=white)](#)
-[![Scikit-Learn](https://img.shields.io/badge/scikit--learn-Machine%20Learning-orange?style=for-the-badge&logo=scikit-learn&logoColor=white)](#)
-[![HTML/CSS/JS](https://img.shields.io/badge/Vanilla-Frontend-yellow?style=for-the-badge&logo=javascript&logoColor=white)](#)
+[![Scikit-Learn](https://img.shields.io/badge/scikit--learn-ML-orange?style=for-the-badge&logo=scikit-learn&logoColor=white)](#)
+[![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)](#)
+[![Vite](https://img.shields.io/badge/Vite-5-646CFF?style=for-the-badge&logo=vite&logoColor=white)](#)
 
-*Predicting, tracking, and understanding reproductive health, menopause stages, and associated risks through Machine Learning and advanced UI/UX.*
+*Predicting, tracking, and understanding reproductive health, menopause stages, and associated risks through Machine Learning.*
 
 </div>
 
 ---
 
 ## 🌟 Overview
-**MenopaAI** is a comprehensive diagnostic health platform designed to help women navigate the complexities of perimenopause, menopause, and associated reproductive syndromes (like PCOS). By taking a quick but detailed symptom and lifestyle questionnaire, users receive an **AI-generated personalized health profile.**
+
+**MenopaAI** is a comprehensive diagnostic health platform designed to help women navigate the complexities of perimenopause, menopause, and associated reproductive syndromes (like PCOS). By completing a detailed symptom and lifestyle questionnaire, users receive an **AI-generated personalized health profile.**
 
 The platform features six specialized Random Forest Machine Learning models trained on augmented, medically coherent symptom datasets to provide high-accuracy risk assessments.
 
@@ -23,84 +25,189 @@ The platform features six specialized Random Forest Machine Learning models trai
 
 ## ✨ Key Features
 
-- **🤖 6-Model AI Prediction Engine:** Accurately forecasts Menopause Stage, Symptom Severity, Osteoporosis Risk, Cardiovascular Risk, and Hormonal Imbalance.
-- **💬 Context-Aware AI Chatbot:** An integrated NLP-powered assistant that understands your personal test results and can answer dozens of questions regarding menopause, symptom management, and treatments.
-- **📊 Dynamic Visualizations:** Uses Chart.js to render beautiful Symptom Radar capabilities (Psychological, Vasomotor, Physical, etc.) and line charts summarizing historical trends.
-- **📄 Instant PDF Reports:** Generate and download a beautifully formatted, lossless PDF of your entire personalized health dashboard locally.
-- **🌐 Localization:** Features an instant Urdu / English toggle, translating the complex questionnaire and medical advice for South Asian demographics. 
-- **📈 Explainable AI:** View the inner workings of the Random Forest models by looking at the Feature Importance rankings for your specific predictions.
-- **🔬 Data Augmentation Pipeline:** Includes a custom script that generated a robust 500-sample dataset, strictly respecting original medical distributions and constraints (e.g. preventing post-menopausal pregnancies).
+- **🤖 6-Model AI Prediction Engine** — Forecasts Menopause Stage, Symptom Severity, Osteoporosis Risk, Cardiovascular Risk, Hormonal Imbalance, and Reproductive Health
+- **💬 Context-Aware AI Chatbot** — NLP-powered assistant that understands your personal test results using TF-IDF & Cosine Similarity
+- **📊 Dynamic Visualizations** — Recharts-powered radar charts, trend lines, and risk breakdowns
+- **🌐 Bilingual Support** — Instant Urdu / English toggle for South Asian demographics
+- **📈 Explainable AI** — Feature importance rankings showing what drove each prediction
+- **🔬 Data Augmentation Pipeline** — Custom script generating a robust 500-sample dataset respecting medical distributions
 
 ---
 
 ## 🛠️ Technology Stack
 
-| Architecture | Technologies |
+| Layer | Technologies |
 | :--- | :--- |
 | **Backend** | Python 3.12, Flask, Flask-CORS |
-| **Machine Learning** | Scikit-learn, Pandas, NumPy, NLP (TF-IDF & Cosine Similarity) |
-| **Frontend** | HTML5, Vanilla JavaScript (ES6+), Vanilla CSS (Glassmorphism) |
-| **Libraries** | Chart.js, HTML2Canvas, jsPDF |
+| **Machine Learning** | Scikit-learn 1.4, Pandas, NumPy, Joblib |
+| **Frontend** | React 18, Vite 5, Framer Motion |
+| **Charts & UI** | Recharts, html2canvas, jsPDF |
 
 ---
 
 ## 📂 Project Structure
 
-```text
-menopause-app/
+```
+MenopaAi/
 │
-├── backend/                  # 🟢 Python Server & AI Models
-│   ├── app.py                # Main Flask API and Chatbot logic
-│   ├── train_model.py        # ML Training and Model Export script
-│   ├── augment_data.py       # Algorithmic synthetic data generator
-│   └── models/               # Serialized .pkl models and accuracy arrays
+├── backend/                        # Flask API & ML models
+│   ├── app.py                      # Main Flask server & chatbot logic
+│   ├── train_model.py              # Model training & export script
+│   ├── augment_data.py             # Synthetic data generator
+│   ├── requirements.txt            # Python dependencies
+│   └── models/                     # Serialized .pkl models & JSON outputs
+│       ├── clf_stage.pkl
+│       ├── clf_severity.pkl
+│       ├── clf_cardio.pkl
+│       ├── clf_hormonal.pkl
+│       ├── clf_osteo.pkl
+│       ├── clf_repro.pkl
+│       ├── feature_cols.pkl
+│       ├── accuracies.json
+│       └── feature_importance.json
 │
-├── frontend/                 # 🔵 Client-side UI
-│   ├── index.html            # Main website entry point
-│   ├── script.js             # UI manipulation and API fetch logic
-│   ├── styles.css            # Advanced animations and styling
-│   └── assets/               # Local imagery and assets
+├── frontend/                       # React + Vite frontend
+│   ├── src/
+│   │   ├── App.jsx                 # Root component & routing
+│   │   ├── main.jsx                # Entry point
+│   │   ├── api.js                  # Axios/fetch API calls
+│   │   ├── components/
+│   │   │   ├── Navbar.jsx
+│   │   │   ├── HeroSection.jsx
+│   │   │   ├── BreathingScreen.jsx
+│   │   │   ├── Chatbot.jsx
+│   │   │   ├── Questionnaire/      # Multi-step form (7 steps)
+│   │   │   └── Results/            # Dashboard cards
+│   │   ├── context/
+│   │   │   └── LanguageContext.jsx # Urdu/English toggle
+│   │   └── styles/
+│   │       ├── global.css
+│   │       └── animations.css
+│   ├── package.json
+│   └── vite.config.js
 │
-└── data/                     # 🟡 Datasets
-    └── synthetic_augmented_data.csv 
+├── fyp (Responses) - Form responses 1.csv   # Original survey data
+└── README.md
 ```
 
 ---
 
-## 🚀 How to Run Locally
+## 🚀 Running from Scratch
 
 ### Prerequisites
-- Python 3.10+
-- A modern web browser (Chrome, Firefox, Safari)
 
-### 1. Start the Backend API
-Open your terminal and navigate to the project root:
+| Tool | Version | Install |
+| :--- | :--- | :--- |
+| Python | 3.10+ | [python.org](https://www.python.org/downloads/) |
+| Node.js | 18+ | [nodejs.org](https://nodejs.org/) |
+| npm | 9+ | Comes with Node.js |
+
+---
+
+### Step 1 — Clone the Repository
+
 ```bash
-# Navigate to the backend directory
+git clone git@github.com:khubaib-ctrl/Menopa-AI.git
+cd Menopa-AI
+```
+
+---
+
+### Step 2 — Set Up the Backend
+
+```bash
+# Navigate to the backend folder
 cd backend
 
-# Install the required dependencies (pandas, scikit-learn, flask, etc.)
+# Create and activate a virtual environment
+python -m venv venv
+
+# On macOS/Linux:
+source venv/bin/activate
+
+# On Windows:
+venv\Scripts\activate
+
+# Install Python dependencies
 pip install -r requirements.txt
 
 # Start the Flask server
 python app.py
 ```
-*The backend should now be listening on port 5000.*
 
-### 2. Launch the Frontend
-Because the frontend uses vanilla HTML/JS, no Node.js servers are required.
-- Simply navigate to the `frontend/` folder.
-- Double-click **`index.html`** to open it directly in your web browser. 
+The backend will start at **`http://localhost:5000`**
+
+> **Note:** The trained model files are already included in `backend/models/`. You do **not** need to retrain unless you have new data.
 
 ---
 
-## 🧠 Retraining the AI Models
-If you obtain more authentic survey data, you can easily retrain the models:
-1. Place your data in the `data/` folder.
-2. Update the target rows inside `backend/augment_data.py` and run it.
-3. Run `python backend/train_model.py`. The `models/` directory, accuracy arrays, and feature importance dictionaries will automatically regenerate.
+### Step 3 — Set Up the Frontend
+
+Open a **new terminal tab/window** (keep the backend running):
+
+```bash
+# From the project root, navigate to the frontend
+cd frontend
+
+# Install Node.js dependencies
+npm install
+
+# Start the Vite development server
+npm run dev
+```
+
+The frontend will start at **`http://localhost:5173`**
+
+Open your browser and go to **[http://localhost:5173](http://localhost:5173)**
 
 ---
+
+### Step 4 — Using the App
+
+1. Fill in the **multi-step health questionnaire** (personal info, symptoms, lifestyle, etc.)
+2. Submit to receive your **AI-generated health dashboard**
+3. Explore risk scores, radar charts, and feature importance
+4. Use the **chatbot** to ask follow-up questions about your results
+5. Toggle **Urdu/English** using the language switch in the navbar
+
+---
+
+## 🧠 Retraining the AI Models (Optional)
+
+Only needed if you have new survey data:
+
+```bash
+# 1. Place your new CSV data in the data/ folder
+
+# 2. Regenerate the augmented dataset (edit target rows in the script first)
+python backend/augment_data.py
+
+# 3. Retrain all 6 models — overwrites models/ directory automatically
+python backend/train_model.py
+```
+
+---
+
+## 🔧 Building for Production
+
+```bash
+# Build the frontend for deployment
+cd frontend
+npm run build
+# Output will be in frontend/dist/
+```
+
+---
+
+## 📋 Environment Notes
+
+- The Flask backend runs on port **5000** by default
+- The Vite frontend proxies API calls to `http://localhost:5000`
+- CORS is enabled on the backend for local development
+- No database is required — all predictions are stateless
+
+---
+
 <div align="center">
 <i>Built with ❤️ to empower women's health through Artificial Intelligence.</i>
 </div>
