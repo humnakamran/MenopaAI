@@ -1,0 +1,104 @@
+{
+  "Menopause Stage": [
+    {
+      "feature": "has_thyroid",
+      "importance": 61.11
+    },
+    {
+      "feature": "s_sleep_disturbances",
+      "importance": 59.46
+    },
+    {
+      "feature": "s_irritability",
+      "importance": 51.47
+    },
+    {
+      "feature": "s_hot_flashes",
+      "importance": 47.7
+    },
+    {
+      "feature": "has_diabetes",
+      "importance": 46.94
+    },
+    {
+      "feature": "has_osteo",
+      "importance": 45.58
+    },
+    {
+      "feature": "s_weight_gain_symptom",
+      "importance": 45.01
+    },
+    {
+      "feature": "smokes",
+      "importance": 43.99
+    }
+  ],
+  "Cardiovascular Risk": [
+    {
+      "feature": "has_heart",
+      "importance": 370.7
+    },
+    {
+      "feature": "has_htn",
+      "importance": 291.76
+    },
+    {
+      "feature": "fam_diabetes",
+      "importance": 250.2
+    },
+    {
+      "feature": "has_diabetes",
+      "importance": 195.31
+    },
+    {
+      "feature": "smokes",
+      "importance": 186.4
+    },
+    {
+      "feature": "tobacco_use",
+      "importance": 127.44
+    },
+    {
+      "feature": "has_thyroid",
+      "importance": 125.64
+    },
+    {
+      "feature": "s_joint_pain",
+      "importance": 94.52
+    }
+  ],
+  "Reproductive Profile": [
+    {
+      "feature": "pcos_flag",
+      "importance": 24.95
+    },
+    {
+      "feature": "infert_flag",
+      "importance": 21.98
+    },
+    {
+      "feature": "bmi_f",
+      "importance": 7.78
+    },
+    {
+      "feature": "sym_score",
+      "importance": 5.21
+    },
+    {
+      "feature": "age_f",
+      "importance": 4.19
+    },
+    {
+      "feature": "s_pain_intercourse",
+      "importance": 2.82
+    },
+    {
+      "feature": "stress_f",
+      "importance": 2.67
+    },
+    {
+      "feature": "fam_diabetes",
+      "importance": 2.14
+    }
+  ]
+}

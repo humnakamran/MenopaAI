@@ -29,5 +29,3 @@ dist-ssr/
 
 # Project Specific
 data/
-backend/models/*.pkl
-backend/models/*.json
