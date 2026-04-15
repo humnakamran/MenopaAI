@@ -107,7 +107,7 @@ MenopaAi/
 ### Step 1 — Clone the Repository
 
 ```bash
-git clone git@github.com:khubaib-ctrl/Menopa-AI.git
+git clone git@github.com:humnakamran/Menopa-AI.git
 cd Menopa-AI
 ```
 
