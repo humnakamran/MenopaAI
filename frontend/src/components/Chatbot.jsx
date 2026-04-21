@@ -105,13 +105,13 @@ export default function Chatbot({ predictions }) {
           width: 56px;
           height: 56px;
           border-radius: 50%;
-          background: linear-gradient(135deg, var(--terracotta), var(--sage));
+          background: linear-gradient(135deg, var(--pink-400), var(--baby-pink-400));
           color: white;
           border: none;
           font-size: 1.5rem;
           cursor: pointer;
-          box-shadow: 0 4px 20px rgba(236,64,122,0.35);
-          transition: transform 0.3s var(--ease-spring);
+          box-shadow: 0 4px 20px rgba(212, 83, 126, 0.35);
+          transition: transform 0.3s ease;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -123,17 +123,17 @@ export default function Chatbot({ predictions }) {
           right: 0;
           width: 340px;
           height: 460px;
-          background: var(--cream);
+          background: var(--gray-50);
           border-radius: var(--radius-lg);
-          box-shadow: 0 12px 40px rgba(0,0,0,0.12);
-          border: 1px solid var(--card-border);
+          box-shadow: var(--shadow-lg);
+          border: 1px solid var(--gray-100);
           display: flex;
           flex-direction: column;
           overflow: hidden;
           transform-origin: bottom right;
         }
         .chat-header {
-          background: linear-gradient(135deg, var(--terracotta-dark), var(--sage));
+          background: linear-gradient(135deg, var(--pink-600), var(--baby-pink-400));
           color: white;
           padding: 14px 18px;
           font-weight: 600;
@@ -175,12 +175,12 @@ export default function Chatbot({ predictions }) {
           line-height: 1.45;
         }
         .chat-msg.bot .chat-bubble {
-          background: rgba(236,64,122,0.07);
+          background: var(--pink-50);
           border-bottom-left-radius: 4px;
-          color: var(--text);
+          color: var(--gray-900);
         }
         .chat-msg.user .chat-bubble {
-          background: var(--terracotta);
+          background: var(--pink-400);
           color: white;
           border-bottom-right-radius: 4px;
         }
@@ -193,7 +193,7 @@ export default function Chatbot({ predictions }) {
           width: 7px;
           height: 7px;
           border-radius: 50%;
-          background: var(--sage-mist);
+          background: var(--baby-pink-100);
           animation: dotBounce 1.2s ease-in-out infinite;
         }
         .typing .dot:nth-child(2) { animation-delay: 0.2s; }
@@ -204,7 +204,7 @@ export default function Chatbot({ predictions }) {
         }
         .chat-input-row {
           padding: 12px;
-          border-top: 1px solid var(--sage-wash);
+          border-top: 1px solid var(--baby-pink-50);
           display: flex;
           gap: 8px;
           background: rgba(255,255,255,0.6);
@@ -212,20 +212,20 @@ export default function Chatbot({ predictions }) {
         .chat-input-row input {
           flex: 1;
           padding: 10px 14px;
-          border: 1.5px solid var(--sage-wash);
+          border: 1.5px solid var(--baby-pink-50);
           border-radius: 100px;
           font-family: var(--font-body);
           font-size: 0.85rem;
           outline: none;
           background: white;
-          color: var(--text);
+          color: var(--gray-900);
         }
-        .chat-input-row input:focus { border-color: var(--terracotta); }
+        .chat-input-row input:focus { border-color: var(--pink-400); }
         .chat-send {
           width: 38px;
           height: 38px;
           border-radius: 50%;
-          background: var(--terracotta);
+          background: var(--pink-400);
           color: white;
           border: none;
           cursor: pointer;
@@ -236,7 +236,7 @@ export default function Chatbot({ predictions }) {
           transition: background 0.2s;
           flex-shrink: 0;
         }
-        .chat-send:hover { background: var(--terracotta-dark); }
+        .chat-send:hover { background: var(--pink-600); }
         .chat-send:disabled { opacity: 0.5; cursor: not-allowed; }
         @media (max-width: 480px) {
           .chatbot-widget { bottom: 14px; right: 14px; }
@@ -244,7 +244,8 @@ export default function Chatbot({ predictions }) {
             position: fixed;
             bottom: 0;
             right: 0;
-            width: 100vw;
+            left: 0;
+            width: auto;
             height: 100vh;
             border-radius: 0;
           }

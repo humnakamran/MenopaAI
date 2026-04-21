@@ -9,7 +9,7 @@ Endpoints:
   POST /chat                → AI chatbot (context-aware)
 """
 
-import re, os, json
+import re, os, json, sqlite3, hashlib
 import numpy as np
 import pandas as pd
 import joblib
@@ -22,6 +22,20 @@ app = Flask(__name__)
 CORS(app)
 
 MODEL_DIR = "models"
+
+# ── Database Setup ────────────────────────────────────────────────────────────
+def init_db():
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS users
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+def hash_password(password):
+    return hashlib.sha256(password.encode()).hexdigest()
 
 # ── Load models (Stage, Cardio, Repro are ML; Severity/Osteo/Hormonal = rules)
 clf_stage  = joblib.load(f"{MODEL_DIR}/clf_stage.pkl")
@@ -404,7 +418,8 @@ def predict():
             "cardio_pct":          risk_to_pct(cardio),
             "radar_data":          radar_data,
             "recommendations":     recs,
-            "model_accuracies":    model_accuracies
+            "model_accuracies":    model_accuracies,
+            "bmi":                 round(float(bmi), 1)
         }
         return jsonify(result)
 
@@ -424,6 +439,56 @@ def chat():
         return jsonify({"response": response})
     except Exception as e:
         return jsonify({"response": "Sorry, I encountered an error. Please try again."})
+
+
+# ── Authentication ─────────────────────────────────────────────────────────────
+@app.route("/register", methods=["POST"])
+def register():
+    try:
+        data = request.get_json(force=True)
+        username = data.get("username")
+        password = data.get("password")
+        
+        if not username or not password:
+            return jsonify({"status": "error", "message": "Username and password are required"}), 400
+            
+        hashed_password = hash_password(password)
+        
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        c.execute("INSERT INTO users (username, password) VALUES (?, ?)", (username, hashed_password))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "message": "User registered successfully"})
+    except sqlite3.IntegrityError:
+        return jsonify({"status": "error", "message": "Username already exists"}), 409
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+@app.route("/login", methods=["POST"])
+def login():
+    try:
+        data = request.get_json(force=True)
+        username = data.get("username")
+        password = data.get("password")
+        
+        if not username or not password:
+            return jsonify({"status": "error", "message": "Username and password are required"}), 400
+            
+        hashed_password = hash_password(password)
+        
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        c.execute("SELECT * FROM users WHERE username = ? AND password = ?", (username, hashed_password))
+        user = c.fetchone()
+        conn.close()
+        
+        if user:
+            return jsonify({"status": "success", "message": "Login successful", "username": username})
+        else:
+            return jsonify({"status": "error", "message": "Invalid credentials"}), 401
+    except Exception as e:
+        return jsonify({"status": "error", "message": str(e)}), 500
 
 
 if __name__ == "__main__":

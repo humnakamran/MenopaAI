@@ -1,100 +1,57 @@
+import { Link, useNavigate } from 'react-router-dom'
 import { useLang } from '../context/LanguageContext'
-import { motion } from 'framer-motion'
-import heroImg from '../assets/hero-image.png'
+import { useAuth } from '../context/AuthContext'
+import styles from './Navbar.module.css'
 
-export default function Navbar() {
-  const { lang, toggle, t } = useLang()
+export default function Navbar({ minimal = false }) {
+  const navigate = useNavigate()
+  const { lang, toggle } = useLang()
+  const { user, logout } = useAuth()
 
   return (
-    <motion.nav
-      className="navbar"
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-    >
-      <div className="nav-brand">
-        <div className="nav-img-wrap">
-          <img src={heroImg} alt="MenopaAI" className="nav-img" />
+    <nav className={styles.nav}>
+      <Link to="/" className={styles.logo}>
+        <div className={styles.logoDot}>
+          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+            <circle cx="7" cy="5" r="3" fill="#fff"/>
+            <path d="M2 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+          </svg>
         </div>
-        <span className="nav-logo">{t('nav', 'brand')}</span>
-      </div>
-
-      <button className="lang-btn" onClick={toggle} title="Toggle Urdu/English">
-        {lang === 'en' ? 'اردو' : 'EN'}
-      </button>
-
-      <style>{`
-        .navbar {
-          display: flex;
-          justify-content: space-between;
-          align-items: center;
-          padding: 14px 40px;
-          position: sticky;
-          top: 0;
-          z-index: 100;
-          background: rgba(253, 245, 248, 0.9);
-          backdrop-filter: blur(18px);
-          -webkit-backdrop-filter: blur(18px);
-          border-bottom: 1px solid rgba(236, 64, 122, 0.08);
-        }
-        .nav-brand {
-          display: flex;
-          align-items: center;
-          gap: 10px;
-        }
-        .nav-img-wrap {
-          width: 44px;
-          height: 44px;
-          border-radius: 50%;
-          background: linear-gradient(135deg, rgba(244,143,177,0.25), rgba(206,147,216,0.2));
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          overflow: hidden;
-          flex-shrink: 0;
-          transition: transform 0.3s cubic-bezier(0.34,1.56,0.64,1);
-        }
-        .nav-img-wrap:hover {
-          transform: scale(1.1) rotate(-5deg);
-        }
-        .nav-img {
-          width: 36px;
-          height: 36px;
-          object-fit: contain;
-          filter: drop-shadow(0 2px 6px rgba(236,64,122,0.3));
-        }
-        .nav-logo {
-          font-family: var(--font-display);
-          font-size: 1.35rem;
-          font-weight: 800;
-          color: var(--sage-deep);
-          letter-spacing: -0.03em;
-        }
-        .lang-btn {
-          font-family: var(--font-body);
-          font-size: 0.82rem;
-          font-weight: 700;
-          padding: 8px 18px;
-          border-radius: 100px;
-          border: 1.5px solid rgba(236,64,122,0.3);
-          background: rgba(236,64,122,0.05);
-          color: var(--terracotta);
-          cursor: pointer;
-          transition: all 0.25s var(--ease-out-expo);
-          letter-spacing: 0.02em;
-        }
-        .lang-btn:hover {
-          background: var(--terracotta);
-          color: white;
-          border-color: var(--terracotta);
-        }
-        @media (max-width: 768px) {
-          .navbar { padding: 12px 20px; }
-          .nav-logo { font-size: 1.15rem; }
-          .nav-img-wrap { width: 38px; height: 38px; }
-          .nav-img { width: 30px; height: 30px; }
-        }
-      `}</style>
-    </motion.nav>
+        MenoTrack
+      </Link>
+      {!minimal && (
+        <>
+          <div className={styles.links}>
+            <a href="#how">How it works</a>
+            <a href="#about">About</a>
+            <a href="#research">Research</a>
+          </div>
+          <div className={styles.actions}>
+            <button onClick={toggle} className="btn-ghost" style={{ fontSize: '15px', fontWeight: 600, padding: '4px 8px' }}>
+              {lang === 'en' ? 'اردو' : 'EN'}
+            </button>
+            {user ? (
+              <>
+                <Link to="/dashboard" className="btn-ghost" style={{ fontWeight: 600 }}>{user.username}</Link>
+                <button onClick={() => { logout(); navigate('/'); }} className="btn-ghost">Logout</button>
+              </>
+            ) : (
+              <Link to="/login" className="btn-ghost">Sign in</Link>
+            )}
+            <button className="btn-primary" onClick={() => navigate('/assessment')}>
+              Start assessment
+            </button>
+          </div>
+        </>
+      )}
+      {minimal && (
+        <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+          <button onClick={toggle} className="btn-ghost" style={{ fontSize: '15px', fontWeight: 600, padding: '4px 8px' }}>
+            {lang === 'en' ? 'اردو' : 'EN'}
+          </button>
+          <Link to="/" className={styles.exit}>Save &amp; exit</Link>
+        </div>
+      )}
+    </nav>
   )
 }
