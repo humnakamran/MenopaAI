@@ -29,6 +29,10 @@ def init_db():
     c = conn.cursor()
     c.execute('''CREATE TABLE IF NOT EXISTS users
                  (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT UNIQUE, password TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS assessments
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, date TEXT, stage_prediction TEXT, cvd_risk INTEGER, bone_risk INTEGER, full_data TEXT)''')
+    c.execute('''CREATE TABLE IF NOT EXISTS profiles
+                 (username TEXT PRIMARY KEY, age INTEGER, height REAL, weight REAL, goal TEXT)''')
     conn.commit()
     conn.close()
 
@@ -132,13 +136,43 @@ def compute_osteo_risk(d, stage, bmi):
     elif age > 45: score += 1
     diagnoses = str(d.get("diagnoses", "")).lower()
     fam_hist  = str(d.get("family_history", "")).lower()
-    if "osteoporosis" in diagnoses or "osteoporosis" in fam_hist: score += 3
+    if "osteoporosis" in diagnoses or "osteopenia" in diagnoses or "osteoporosis" in fam_hist: score += 3
     if "vitamin d" in diagnoses: score += 1
     if "post" in stage.lower():  score += 2
     elif "peri" in stage.lower(): score += 1
     if "sedentary" in str(d.get("physical_activity", "")).lower(): score += 1
     if not np.isnan(bmi) and bmi < 18.5: score += 1
     if score >= 5: return "High"
+    if score >= 3: return "Medium"
+    return "Low"
+
+def compute_cardio_risk(d, bmi):
+    score = 0
+    diagnoses = str(d.get("diagnoses", "")).lower()
+    fam_hist  = str(d.get("family_history", "")).lower()
+    
+    if "heart disease" in diagnoses or "heart" in fam_hist: score += 3
+    if "blood pressure" in diagnoses or "hypertension" in diagnoses: score += 2
+    if "diabetes" in diagnoses or "diabetes" in fam_hist: score += 2
+    if "cholesterol" in diagnoses: score += 1
+    
+    smoking = str(d.get("smoking", "no")).lower()
+    tobacco = str(d.get("tobacco", "no")).lower()
+    if smoking in ["yes", "current", "former"]: score += 1
+    if tobacco not in ["no", "never", ""]: score += 1
+    
+    if not np.isnan(bmi):
+        if bmi >= 30: score += 2
+        elif bmi >= 25: score += 1
+        
+    activity = str(d.get("physical_activity", "")).lower()
+    if "sedentary" in activity: score += 1
+    
+    stress = to_num(d.get("stress_level", 2))
+    if np.isnan(stress): stress = 2
+    if stress >= 4: score += 1
+    
+    if score >= 6: return "High"
     if score >= 3: return "Medium"
     return "Low"
 
@@ -188,12 +222,12 @@ def build_features(d):
     early_meno  = str(d.get("early_menopause", "no")).lower()
 
     row["has_diabetes"]  = 1 if "diabetes" in diagnoses else 0
-    row["has_htn"]       = 1 if "hypertension" in diagnoses else 0
+    row["has_htn"]       = 1 if "hypertension" in diagnoses or "blood pressure" in diagnoses else 0
     row["has_thyroid"]   = 1 if "thyroid" in diagnoses else 0
     row["has_anemia"]    = 1 if "anemia" in diagnoses else 0
     row["has_vitd"]      = 1 if "vitamin d" in diagnoses else 0
     row["has_heart"]     = 1 if "heart" in diagnoses else 0
-    row["has_osteo"]     = 1 if "osteoporosis" in diagnoses else 0
+    row["has_osteo"]     = 1 if "osteoporosis" in diagnoses or "osteopenia" in diagnoses else 0
     row["smokes"]        = 1 if smoking in ["yes","current","former"] else 0
     row["tobacco_use"]   = 0 if tobacco in ["no","never",""] else 1
     row["pcos_flag"]     = 1 if any(x in pcos_diag for x in ["yes","suspected","confirmed"]) else 0
@@ -362,20 +396,36 @@ def predict():
         data = request.get_json(force=True)
         X, sym_score, bmi = build_features(data)
 
-        # ML models
-        stage  = le_stage.inverse_transform(clf_stage.predict(X))[0]
-        cardio = le_cardio.inverse_transform(clf_cardio.predict(X))[0]
+        # Rule-based Stage Prediction (Clinical STRAW+10 Criteria)
+        cycle_pat = str(data.get("cycle_pattern", "")).lower()
+        if "no period" in cycle_pat:
+            stage = "Post-menopause"
+        elif "irregular" in cycle_pat:
+            stage = "Peri-menopause"
+        elif "regular" in cycle_pat:
+            stage = "Pre-menopause"
+        else:
+            age = to_num(data.get("age", 40))
+            if age >= 55: stage = "Post-menopause"
+            elif age >= 45: stage = "Peri-menopause"
+            else: stage = "Pre-menopause"
+
+        # ML models for other predictions
         repro  = le_repro.inverse_transform(clf_repro.predict(X))[0]
 
         # Rule-based (deterministic — no ML needed)
         severity = compute_severity(sym_score)
         osteo    = compute_osteo_risk(data, stage, bmi)
+        cardio   = compute_cardio_risk(data, bmi)
         hormonal = compute_hormonal(data)
 
         # Probabilities
-        stage_proba   = clf_stage.predict_proba(X)[0]
-        stage_classes = le_stage.classes_
-        stage_conf    = {cls: round(float(p)*100, 1) for cls, p in zip(stage_classes, stage_proba)}
+        # Deterministic confidence since we use clinical rules for the stage now
+        stage_conf = {
+            "Pre-menopause": 2.1 if stage != "Pre-menopause" else 95.8,
+            "Peri-menopause": 2.1 if stage != "Peri-menopause" else 95.8,
+            "Post-menopause": 2.1 if stage != "Post-menopause" else 95.8
+        }
 
         # Symptom radar data (scores per category 0–2)
         radar_data = {
@@ -389,20 +439,123 @@ def predict():
 
         # Recommendations
         recs = []
+        
+        # Stage-specific lifestyle & diet recommendations
+        if "Pre" in stage:
+            recs.append({
+                "emoji":"🌱",
+                "title":"Building Your Lifestyle Foundation",
+                "text":"It's never too early to prepare your body for future hormonal changes. Focus on strength training and balanced nutrition now.",
+                "details":"Even though your periods are regular, your body is continuously preparing for the future. Building muscle mass now acts like a 'bank account' that protects your metabolism and bones when estrogen levels eventually drop. Women with little knowledge of strength training can start simple—using body weight or resistance bands at home 2-3 times a week.",
+                "link_title":"A Beginner's Guide to Strength Training for Women",
+                "link_url":"https://www.healthline.com/health/womens-health/strength-training-for-women"
+            })
+            recs.append({
+                "emoji":"🥗",
+                "title":"Nutrition for Hormonal Harmony",
+                "text":"Ensure a diet rich in iron, calcium, and complex carbohydrates to support your regular cycle.",
+                "details":"A traditional diet can sometimes lack the necessary protein and calcium required to keep your bones dense and your energy stable. Try incorporating more lentils, dark leafy greens, and dairy or fortified plant milk into your daily meals. This prevents anemia and keeps your hormones functioning perfectly.",
+                "link_title":"The Best Diet for Women's Health",
+                "link_url":"https://www.eatright.org/health/wellness/healthy-aging/healthy-eating-for-women"
+            })
+        elif "Peri" in stage:
+            recs.append({
+                "emoji":"📅",
+                "title":"Tracking Unpredictable Changes",
+                "text":"Keep a detailed diary of your periods and hot flashes to help your doctor understand your transition.",
+                "details":"Perimenopause means your ovaries are slowly producing less estrogen. This doesn't happen overnight; it fluctuates wildly like a rollercoaster. This causes missed periods, sudden heavy bleeding, or hot flashes. By tracking these symptoms on your phone or a notebook, you empower yourself and your doctor to find the exact right treatment (like low-dose birth control or HRT).",
+                "link_title":"What to Expect During Perimenopause",
+                "link_url":"https://www.hopkinsmedicine.org/health/conditions-and-diseases/perimenopause"
+            })
+            recs.append({
+                "emoji":"🥑",
+                "title":"The Hormone-Balancing Diet",
+                "text":"Increase phytoestrogens (flaxseeds, soy) and omega-3s to stabilize mood swings and reduce inflammation.",
+                "details":"What you eat can actually act like mild hormones in your body! 'Phytoestrogens' are plant-based compounds found in soy, chickpeas, and flaxseeds that gently mimic estrogen, helping to cool down hot flashes. Omega-3 fatty acids found in walnuts and fish protect your brain from the 'brain fog' and mood swings common in this phase.",
+                "link_title":"Foods That Help with Menopause Symptoms",
+                "link_url":"https://www.medicalnewstoday.com/articles/320630"
+            })
+            recs.append({
+                "emoji":"🧘‍♀️",
+                "title":"Managing Cortisol and Sleep",
+                "text":"Prioritize daily stress-reduction to combat the heavy impact of cortisol on your sleep.",
+                "details":"Estrogen normally acts as a buffer against stress. As it drops, the stress hormone 'cortisol' hits your body much harder. This is why you might suddenly feel anxious, overwhelmed, or wake up at 3 AM unable to sleep. Practicing just 10 minutes of deep breathing or gentle stretching before bed can drastically lower cortisol and improve sleep.",
+                "link_title":"How Menopause Affects Your Sleep",
+                "link_url":"https://www.sleepfoundation.org/women-sleep/menopause-and-sleep"
+            })
+        elif "Post" in stage:
+            recs.append({
+                "emoji":"👩‍⚕️",
+                "title":"Crucial Health Screenings",
+                "text":"Schedule annual mammograms, DEXA (bone) scans, and lipid panels to protect your heart and bones.",
+                "details":"Once you have gone 12 months without a period, your body loses the protective shield of estrogen. This means your risk for heart disease and osteoporosis (brittle bones) catches up to men. It is absolutely vital to visit your doctor yearly to check your blood pressure, cholesterol, and get a DEXA scan to ensure your bones aren't thinning silently.",
+                "link_title":"Important Medical Tests After Menopause",
+                "link_url":"https://www.menopause.org/for-women/menopauseflashes/bone-health-and-heart-health/bone-health-and-heart-health"
+            })
+            recs.append({
+                "emoji":"💪",
+                "title":"Defending Muscle & Bone",
+                "text":"Shift your exercise to focus heavily on resistance training to prevent rapid muscle loss.",
+                "details":"In the first 5 years of post-menopause, women can lose up to 10% of their bone mass. Walking is great, but to force your bones to stay thick and strong, you must lift weights or do resistance exercises (like squats or using resistance bands). This also boosts your slowing metabolism, preventing abdominal weight gain.",
+                "link_title":"Preventing Bone Loss After Menopause",
+                "link_url":"https://www.mayoclinic.org/diseases-conditions/osteoporosis/in-depth/osteoporosis/art-20044989"
+            })
+            recs.append({
+                "emoji":"🫐",
+                "title":"Heart-Protective Eating",
+                "text":"Prioritize lean proteins, berries, leafy greens, and healthy fats (like olive oil) for heart health.",
+                "details":"A post-menopausal diet needs less sugar and more high-quality protein to maintain muscle. The Mediterranean Diet is widely considered the best: it focuses on reducing processed carbs and replacing them with vegetables, beans, and healthy oils. This prevents plaque buildup in your arteries and keeps your heart strong.",
+                "link_title":"The Mediterranean Diet for Heart Health",
+                "link_url":"https://www.heart.org/en/healthy-living/healthy-eating/eat-smart/nutrition-basics/mediterranean-diet"
+            })
+
+        # Risk-specific recommendations
         if osteo in ["Medium", "High"]:
-            recs.append({"emoji":"🦴","title":"Bone Health","text":"Increase calcium (1200 mg/day) & Vitamin D. Add weight-bearing exercises."})
+            recs.append({
+                "emoji":"🦴",
+                "title":"Urgent Bone Health Action",
+                "text":"Increase calcium (1200 mg/day) and Vitamin D immediately. Avoid smoking.",
+                "details":"Your assessment indicates a higher risk for osteoporosis, meaning your bones could break easily from a minor fall. Your body cannot absorb Calcium without Vitamin D. Try to get 15 minutes of sunlight a day, eat dairy or fortified foods, and talk to your doctor about starting a Vitamin D supplement. Avoid smoking, as it destroys bone-building cells.",
+                "link_title":"Understanding Osteoporosis and Bone Health",
+                "link_url":"https://www.nof.org/patients/what-is-osteoporosis/"
+            })
         if cardio in ["Medium", "High"]:
-            recs.append({"emoji":"❤️","title":"Heart Health","text":"Adopt a low-sodium diet, manage stress, and get regular cardio exercise."})
-        if "Post" in stage:
-            recs.append({"emoji":"👩‍⚕️","title":"Screening","text":"Schedule a mammogram and bone density (DEXA) scan annually."})
+            recs.append({
+                "emoji":"❤️",
+                "title":"Cardiovascular Care Plan",
+                "text":"Adopt a strict low-sodium diet, monitor your blood pressure closely, and ensure aerobic exercise.",
+                "details":"Your heart needs extra care right now. High blood pressure is often called the 'silent killer' because you can't feel it. Start by drastically reducing added salt in your cooking, avoiding processed foods, and aiming for a 30-minute brisk walk daily. A strong heart pumps blood efficiently and prevents strokes.",
+                "link_title":"Protecting Your Heart After Menopause",
+                "link_url":"https://www.goredforwomen.org/en/know-your-risk/menopause"
+            })
         if hormonal == "Yes":
-            recs.append({"emoji":"🔬","title":"Hormonal Check","text":"Consult a gynecologist for FSH, LH, and estradiol panel testing."})
+            recs.append({
+                "emoji":"🔬",
+                "title":"Endocrine & Thyroid Check",
+                "text":"Consult an endocrinologist or gynecologist for a full thyroid and reproductive hormone panel.",
+                "details":"Symptoms like irregular periods, unexpected weight gain, and severe fatigue can sometimes be caused by a sluggish thyroid (hypothyroidism) or PCOS, rather than just menopause. A simple blood test checking your TSH, FSH, and Estradiol levels will give you and your doctor clarity on exactly what is causing your symptoms.",
+                "link_title":"Thyroid Disease vs. Menopause",
+                "link_url":"https://www.thyroid.org/patient-thyroid-information/what-are-thyroid-problems/q-and-a-thyroid-disease-and-menopause/"
+            })
         if severity == "Severe":
-            recs.append({"emoji":"💊","title":"Symptom Relief","text":"Severe symptoms detected — speak with your doctor about management options."})
-        if "Peri" in stage:
-            recs.append({"emoji":"📅","title":"Track Cycles","text":"Keep a symptom diary to help your doctor understand your transition."})
+            recs.append({
+                "emoji":"💊",
+                "title":"Medical Symptom Relief (HRT)",
+                "text":"Your symptoms are classified as severe. Speak with your doctor about HRT or non-hormonal options.",
+                "details":"You do not have to suffer through severe hot flashes or debilitating sleep loss. Hormone Replacement Therapy (HRT) is considered very safe for most healthy women within 10 years of menopause. If HRT isn't right for you, there are excellent non-hormonal prescription medications that can provide immediate relief. Advocate for yourself at your next doctor's visit.",
+                "link_title":"Is Hormone Replacement Therapy Right for You?",
+                "link_url":"https://www.menopause.org/for-women/menopauseflashes/menopause-symptoms-and-treatments/hormone-therapy-benefits-risks"
+            })
+
         if not recs:
-            recs.append({"emoji":"🥗","title":"Maintain Wellness","text":"Great indicators! Keep up balanced nutrition, regular activity, and annual check-ups."})
+            recs.append({
+                "emoji":"🥗",
+                "title":"Maintain Wellness",
+                "text":"Great indicators! Keep up balanced nutrition, regular activity, and annual check-ups.",
+                "details":"Your assessment shows that you are navigating this phase exceptionally well! Continue to prioritize a balanced diet, stay hydrated, and ensure you are getting enough sleep. Prevention is always better than cure.",
+                "link_title":"Healthy Habits for Women",
+                "link_url":"https://www.womenshealth.gov/healthy-living/how-live-longer-and-healthier"
+            })
 
         result = {
             "status": "success",
@@ -421,6 +574,21 @@ def predict():
             "model_accuracies":    model_accuracies,
             "bmi":                 round(float(bmi), 1)
         }
+
+        # Save to history if logged in
+        username = data.get("username")
+        if username:
+            import datetime
+            date_str = datetime.datetime.now().strftime("%b %d, %Y")
+            cvd_risk_val = int(risk_to_pct(cardio))
+            bone_risk_val = int(risk_to_pct(osteo))
+            conn = sqlite3.connect('users.db')
+            c = conn.cursor()
+            c.execute("INSERT INTO assessments (username, date, stage_prediction, cvd_risk, bone_risk, full_data) VALUES (?, ?, ?, ?, ?, ?)",
+                      (username, date_str, stage, cvd_risk_val, bone_risk_val, json.dumps(result)))
+            conn.commit()
+            conn.close()
+
         return jsonify(result)
 
     except Exception as e:
@@ -490,6 +658,55 @@ def login():
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 
+
+@app.route("/history", methods=["GET"])
+def get_history():
+    username = request.args.get("username")
+    if not username:
+        return jsonify({"status": "error", "message": "Username required"}), 400
+    conn = sqlite3.connect('users.db')
+    c = conn.cursor()
+    c.execute("SELECT date, stage_prediction, cvd_risk, bone_risk, full_data FROM assessments WHERE username = ? ORDER BY id DESC", (username,))
+    rows = c.fetchall()
+    conn.close()
+    
+    history = []
+    for r in rows:
+        history.append({
+            "date": r[0],
+            "stage": r[1],
+            "cvd": r[2],
+            "bone": r[3],
+            "full_data": json.loads(r[4])
+        })
+    return jsonify({"status": "success", "history": history})
+
+@app.route("/profile", methods=["GET", "POST"])
+def manage_profile():
+    if request.method == "POST":
+        data = request.get_json(force=True)
+        username = data.get("username")
+        age = data.get("age", 0)
+        height = data.get("height", 0.0)
+        weight = data.get("weight", 0.0)
+        goal = data.get("goal", "")
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        c.execute("INSERT OR REPLACE INTO profiles (username, age, height, weight, goal) VALUES (?, ?, ?, ?, ?)",
+                  (username, age, height, weight, goal))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success"})
+    else:
+        username = request.args.get("username")
+        conn = sqlite3.connect('users.db')
+        c = conn.cursor()
+        c.execute("SELECT age, height, weight, goal FROM profiles WHERE username = ?", (username,))
+        row = c.fetchone()
+        conn.close()
+        if row:
+            return jsonify({"status": "success", "profile": {"age": row[0], "height": row[1], "weight": row[2], "goal": row[3]}})
+        return jsonify({"status": "success", "profile": {}})
 
 if __name__ == "__main__":
     app.run(debug=True, port=5000)

@@ -9,6 +9,8 @@ import { LanguageProvider } from './context/LanguageContext'
 import { AuthProvider } from './context/AuthContext'
 import Chatbot from './components/Chatbot'
 import './index.css'
+import About from './pages/About'
+import Research from './pages/Research'
 
 export default function App() {
   return (
@@ -22,6 +24,8 @@ export default function App() {
             <Route path="/assessment" element={<Assessment />} />
             <Route path="/results" element={<Results />} />
             <Route path="/dashboard" element={<Dashboard />} />
+            <Route path="/about" element={<About />} />
+            <Route path="/research" element={<Research />} />
             <Route path="*" element={<Navigate to="/" />} />
           </Routes>
           <Chatbot />

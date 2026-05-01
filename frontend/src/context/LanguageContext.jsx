@@ -7,16 +7,27 @@ export function LanguageProvider({ children }) {
   const [lang, setLang] = useState('en')
 
   const toggle = useCallback(() => {
-    setLang(prev => (prev === 'en' ? 'ur' : 'en'))
-  }, [])
+    const nextLang = lang === 'en' ? 'ur' : 'en'
+    setLang(nextLang)
+    
+    // Trigger Google Translate programmatically
+    setTimeout(() => {
+      const select = document.querySelector('.goog-te-combo')
+      if (select) {
+        select.value = nextLang
+        select.dispatchEvent(new Event('change'))
+      }
+    }, 100)
+  }, [lang])
 
   const t = useCallback(
     (section, key) => {
       const entry = translations[section]?.[key]
       if (!entry) return key
-      return entry[lang] || entry.en || key
+      // Always return English as the base text for Google Translate
+      return entry.en || key
     },
-    [lang]
+    []
   )
 
   return (

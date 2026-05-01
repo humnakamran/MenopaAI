@@ -80,17 +80,39 @@ export default function Landing() {
         </div>
 
         <div className={styles.heroRight}>
-          <div className={styles.ringWrap}>
-            <svg width="240" height="240" viewBox="0 0 240 240">
-              <circle cx="120" cy="120" r="96" fill="none" stroke="#E1F5EE" strokeWidth="20"/>
-              <circle cx="120" cy="120" r="96" fill="none" stroke="#1D9E75" strokeWidth="20"
-                strokeDasharray="220 382" strokeDashoffset="0" strokeLinecap="round"
-                transform="rotate(-90 120 120)"/>
+          <div className={styles.ringWrap} style={{ position: 'relative' }}>
+            <svg width="260" height="260" viewBox="0 0 240 240" 
+                 style={{ filter: 'drop-shadow(0 15px 35px rgba(212, 83, 126, 0.25))', transition: 'transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)', cursor: 'pointer' }}
+                 onMouseEnter={e => e.currentTarget.style.transform = 'scale(1.08) rotate(5deg)'}
+                 onMouseLeave={e => e.currentTarget.style.transform = 'scale(1) rotate(0deg)'}>
+              <defs>
+                <linearGradient id="shinyPink" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stopColor="#FBCFE8" />
+                  <stop offset="50%" stopColor="#F472B6" />
+                  <stop offset="100%" stopColor="#BE185D" />
+                </linearGradient>
+                <filter id="pinkGlow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feGaussianBlur stdDeviation="6" result="blur" />
+                  <feComposite in="SourceGraphic" in2="blur" operator="over" />
+                </filter>
+              </defs>
+              
+              <circle cx="120" cy="120" r="96" fill="none" stroke="#FDF2F8" strokeWidth="20"/>
+              <circle cx="120" cy="120" r="96" fill="none" stroke="url(#shinyPink)" strokeWidth="20"
+                strokeDasharray="220 382" strokeLinecap="round"
+                style={{ transformOrigin: 'center', animation: 'spinPulse 4s cubic-bezier(0.4, 0, 0.2, 1) infinite alternate', filter: 'url(#pinkGlow)' }}/>
               <circle cx="120" cy="120" r="76" fill="#fff"/>
-              <text x="120" y="110" textAnchor="middle" fontSize="11" fill="#888780" fontFamily="DM Sans, sans-serif">Current stage</text>
-              <text x="120" y="130" textAnchor="middle" fontSize="16" fontWeight="500" fill="#0F6E56" fontFamily="DM Sans, sans-serif">Early MT</text>
-              <text x="120" y="146" textAnchor="middle" fontSize="10" fill="#9FE1CB" fontFamily="DM Sans, sans-serif">STRAW +10  ·  Stage −2</text>
+              
+              <text x="120" y="105" textAnchor="middle" fontSize="11" fill="#888780" fontFamily="DM Sans, sans-serif">Current stage</text>
+              <text x="120" y="130" textAnchor="middle" fontSize="20" fontWeight="700" fill="#BE185D" fontFamily="DM Sans, sans-serif">Early MT</text>
+              <text x="120" y="148" textAnchor="middle" fontSize="11" fontWeight="600" fill="#F472B6" fontFamily="DM Sans, sans-serif">STRAW +10  ·  Stage −2</text>
             </svg>
+            <style>{`
+              @keyframes spinPulse {
+                0% { stroke-dasharray: 180 600; transform: rotate(-110deg); }
+                100% { stroke-dasharray: 280 600; transform: rotate(-70deg); }
+              }
+            `}</style>
           </div>
         </div>
       </section>
@@ -140,9 +162,12 @@ export default function Landing() {
       <footer className={styles.footer}>
         <div className={styles.logo} style={{ display:'flex', alignItems:'center', gap:'8px', fontWeight:'600', fontSize:'15px' }}>
           <div style={{ width:26, height:26, borderRadius:'50%', background:'var(--baby-pink-400)', display:'flex', alignItems:'center', justifyContent:'center' }}>
-            <svg width="12" height="12" viewBox="0 0 14 14" fill="none"><circle cx="7" cy="5" r="3" fill="#fff"/><path d="M2 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" fill="none"/></svg>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="9" r="6"/>
+              <path d="M12 15v7M9 19h6"/>
+            </svg>
           </div>
-          MenoTrack
+          Menopa-AI
         </div>
         <p className={styles.footerNote}>Final year project · BS Bioinformatics · 2026</p>
       </footer>

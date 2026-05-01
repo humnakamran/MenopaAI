@@ -12,19 +12,19 @@ export default function Navbar({ minimal = false }) {
     <nav className={styles.nav}>
       <Link to="/" className={styles.logo}>
         <div className={styles.logoDot}>
-          <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-            <circle cx="7" cy="5" r="3" fill="#fff"/>
-            <path d="M2 13c0-2.76 2.24-5 5-5s5 2.24 5 5" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="9" r="6"/>
+            <path d="M12 15v7M9 19h6"/>
           </svg>
         </div>
-        MenoTrack
+        Menopa-AI
       </Link>
       {!minimal && (
         <>
           <div className={styles.links}>
-            <a href="#how">How it works</a>
-            <a href="#about">About</a>
-            <a href="#research">Research</a>
+            <a href="/#how">How it works</a>
+            <Link to="/about">About</Link>
+            <Link to="/research">Research</Link>
           </div>
           <div className={styles.actions}>
             <button onClick={toggle} className="btn-ghost" style={{ fontSize: '15px', fontWeight: 600, padding: '4px 8px' }}>

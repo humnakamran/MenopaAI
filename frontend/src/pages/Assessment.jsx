@@ -2,12 +2,13 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { predictHealth } from '../api'
 import Navbar from '../components/Navbar'
+import { useAuth } from '../context/AuthContext'
 import styles from './Assessment.module.css'
 
 const SECTIONS = [
   {
-    id: 'demographics',
-    label: 'Demographics',
+    id: 'personal',
+    label: 'Personal & Reproductive',
     color: 'baby-pink',
     questions: [
       {
@@ -32,13 +33,6 @@ const SECTIONS = [
           { id: 'weight', label: 'Weight (kg)', placeholder: 'e.g. 65' },
         ],
       },
-    ],
-  },
-  {
-    id: 'menstrual',
-    label: 'Menstrual history',
-    color: 'baby-pink',
-    questions: [
       {
         id: 'cycle_pattern',
         type: 'options',
@@ -62,13 +56,6 @@ const SECTIONS = [
           { id: 'lmp_months', label: 'Months since last period', placeholder: 'e.g. 6' },
         ],
       },
-    ],
-  },
-  {
-    id: 'reproductive',
-    label: 'Reproductive health',
-    color: 'baby-pink',
-    questions: [
       {
         id: 'marital_status',
         type: 'options',
@@ -95,20 +82,21 @@ const SECTIONS = [
       },
       {
         id: 'delivery_mode',
-        type: 'multi',
+        type: 'options',
         text: 'What was your mode of delivery?',
-        sub: 'Select all that apply for your past pregnancies.',
+        sub: 'Select the option that applies to your past pregnancies.',
         options: [
           { label: 'Vaginal Delivery', desc: 'Normal vaginal delivery' },
           { label: 'C-Section', desc: 'Cesarean delivery' },
+          { label: 'Both', desc: 'Both Vaginal and C-Section deliveries' },
           { label: 'None / Not applicable', desc: 'No previous deliveries' },
         ],
       },
     ],
   },
   {
-    id: 'symptoms',
-    label: 'Symptoms',
+    id: 'health',
+    label: 'Symptoms & Health History',
     color: 'purple',
     questions: [
       {
@@ -125,13 +113,6 @@ const SECTIONS = [
           { label: 'Memory or concentration issues', desc: 'Brain fog or difficulty focusing' },
         ],
       },
-    ],
-  },
-  {
-    id: 'health',
-    label: 'Health & labs',
-    color: 'pink',
-    questions: [
       {
         id: 'conditions',
         type: 'multi',
@@ -176,11 +157,23 @@ const SECTIONS = [
           { label: 'No', desc: '' }
         ],
       },
+      {
+        id: 'family_history',
+        type: 'multi',
+        text: 'Do you have a family history of any of the following?',
+        sub: 'Select all that apply. Family history strongly impacts cardiovascular and bone health risks.',
+        options: [
+          { label: 'Heart disease or cardiovascular issues', desc: 'Heart attacks, strokes, etc. in immediate family' },
+          { label: 'Diabetes', desc: 'Type 1 or Type 2 in immediate family' },
+          { label: 'Osteoporosis', desc: 'History of fragile bones or fractures' },
+          { label: 'None of the above', desc: 'No known family history' },
+        ],
+      },
     ],
   },
   {
     id: 'lifestyle',
-    label: 'Lifestyle',
+    label: 'Lifestyle & Habits',
     color: 'amber',
     questions: [
       {
@@ -207,27 +200,45 @@ const SECTIONS = [
           { label: 'Low-dairy diet', desc: 'Minimal milk, yoghurt, or cheese consumption' },
         ],
       },
+      {
+        id: 'smoking',
+        type: 'options',
+        text: 'Do you currently smoke or use tobacco products?',
+        sub: 'Smoking and tobacco use affect bone density and heart health.',
+        options: [
+          { label: 'Never', desc: 'I do not smoke' },
+          { label: 'Former', desc: 'I used to smoke but quit' },
+          { label: 'Current', desc: 'I currently smoke or use tobacco' },
+        ],
+      },
+      {
+        id: 'stress_level',
+        type: 'options',
+        text: 'How would you rate your typical stress level?',
+        sub: 'Chronic stress impacts hormones and heart health.',
+        options: [
+          { label: 'Low (1-2)', desc: 'Rarely stressed, easy going' },
+          { label: 'Moderate (3)', desc: 'Sometimes stressed but manageable' },
+          { label: 'High (4-5)', desc: 'Often stressed, overwhelmed' },
+        ],
+      },
     ],
   },
 ]
 
 export default function Assessment() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [sectionIdx, setSectionIdx] = useState(0)
-  const [questionIdx, setQuestionIdx] = useState(0)
   const [answers, setAnswers] = useState({})
   const [loading, setLoading] = useState(false)
   const [showError, setShowError] = useState(false)
 
   const section = SECTIONS[sectionIdx]
-  const question = section.questions[questionIdx]
-  const totalQuestions = SECTIONS.reduce((a, s) => a + s.questions.length, 0)
-  const completedQuestions = SECTIONS.slice(0, sectionIdx).reduce((a, s) => a + s.questions.length, 0) + questionIdx
-  const progress = Math.round((completedQuestions / totalQuestions) * 100)
 
-  const toggleAnswer = (qid, val) => {
+  const toggleAnswer = (qid, val, type) => {
     setShowError(false)
-    if (question.type === 'multi') {
+    if (type === 'multi') {
       const cur = answers[qid] || []
       setAnswers(a => ({ ...a, [qid]: cur.includes(val) ? cur.filter(x => x !== val) : [...cur, val] }))
     } else {
@@ -235,14 +246,14 @@ export default function Assessment() {
     }
   }
 
-  const isQuestionAnswered = () => {
-    if (question.type === 'options') {
-      return !!answers[question.id]
-    } else if (question.type === 'multi') {
-      const ans = answers[question.id]
+  const isQuestionAnswered = (q) => {
+    if (q.type === 'options') {
+      return !!answers[q.id]
+    } else if (q.type === 'multi') {
+      const ans = answers[q.id]
       return Array.isArray(ans) && ans.length > 0
-    } else if (question.type === 'inputs') {
-      return question.fields.every(f => {
+    } else if (q.type === 'inputs') {
+      return q.fields.every(f => {
         const val = answers[f.id]
         return val !== undefined && val !== null && String(val).trim() !== ''
       })
@@ -250,7 +261,20 @@ export default function Assessment() {
     return false
   }
 
-  const canProceed = isQuestionAnswered()
+  const getAnsweredCount = () => {
+    let count = 0;
+    SECTIONS.forEach(s => {
+      s.questions.forEach(q => {
+        if (isQuestionAnswered(q)) count++;
+      })
+    })
+    return count;
+  }
+
+  const totalQuestions = SECTIONS.reduce((a, s) => a + s.questions.length, 0)
+  const progress = Math.round((getAnsweredCount() / totalQuestions) * 100)
+
+  const canProceed = section.questions.every(q => isQuestionAnswered(q))
 
   const handleNext = async () => {
     if (!canProceed) {
@@ -258,11 +282,9 @@ export default function Assessment() {
       return
     }
     setShowError(false)
-    if (questionIdx < section.questions.length - 1) {
-      setQuestionIdx(q => q + 1)
-    } else if (sectionIdx < SECTIONS.length - 1) {
+    if (sectionIdx < SECTIONS.length - 1) {
       setSectionIdx(s => s + 1)
-      setQuestionIdx(0)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
     } else {
       setLoading(true)
       const payload = {
@@ -285,10 +307,14 @@ export default function Assessment() {
         total_pregnancies: answers.total_pregnancies || '',
         total_live_births: answers.total_live_births || '',
         number_of_miscarriages: answers.number_of_miscarriages || '',
-        delivery_mode: (answers.delivery_mode || []).join(', '),
+        delivery_mode: Array.isArray(answers.delivery_mode) ? answers.delivery_mode.join(', ') : (answers.delivery_mode || ''),
         pap_smear: answers.pap_smear || '',
         mammography: answers.mammography || '',
         bone_density: answers.bone_density || '',
+        family_history: (answers.family_history || []).join(', '),
+        smoking: answers.smoking || 'Never',
+        stress_level: answers.stress_level === 'High (4-5)' ? 4 : answers.stress_level === 'Moderate (3)' ? 3 : 2,
+        username: user ? user.username : null,
       }
       try {
         const data = await predictHealth(payload)
@@ -302,12 +328,14 @@ export default function Assessment() {
   }
 
   const handleBack = () => {
-    if (questionIdx > 0) setQuestionIdx(q => q - 1)
-    else if (sectionIdx > 0) { setSectionIdx(s => s - 1); setQuestionIdx(SECTIONS[sectionIdx - 1].questions.length - 1) }
+    if (sectionIdx > 0) {
+      setSectionIdx(s => s - 1)
+      window.scrollTo({ top: 0, behavior: 'smooth' })
+    }
   }
 
-  const isFirst = sectionIdx === 0 && questionIdx === 0
-  const isLast = sectionIdx === SECTIONS.length - 1 && questionIdx === section.questions.length - 1
+  const isFirst = sectionIdx === 0
+  const isLast = sectionIdx === SECTIONS.length - 1
 
   return (
     <div className={styles.page}>
@@ -326,7 +354,7 @@ export default function Assessment() {
               <div key={s.id} className={`${styles.sideItem} ${active ? styles.sideActive : ''} ${done ? styles.sideDone : ''}`}
                 onClick={() => { 
                   if (i <= sectionIdx) {
-                    setSectionIdx(i); setQuestionIdx(0)
+                    setSectionIdx(i)
                   }
                 }}>
                 <div className={styles.sideNum}>{done ? '✓' : i + 1}</div>
@@ -346,65 +374,70 @@ export default function Assessment() {
         </aside>
 
         <main className={styles.main}>
-          <div className={styles.qWrap} key={`${sectionIdx}-${questionIdx}`} style={{ animation: 'fadeUp 0.35s ease both' }}>
-            <div className={`badge badge-${section.color}`} style={{ marginBottom: 16 }}>
+          <div className={styles.qWrap} key={`section-${sectionIdx}`} style={{ animation: 'fadeUp 0.35s ease both' }}>
+            <div className={`badge badge-${section.color}`} style={{ marginBottom: 24 }}>
               {section.label}
             </div>
-            <h2 className={styles.qTitle}>{question.text}</h2>
-            <p className={styles.qSub}>{question.sub}</p>
 
-            {(question.type === 'options' || question.type === 'multi') && (
-              <div className={`${styles.optGrid} ${question.options.length > 4 ? styles.optGrid3 : ''}`}>
-                {question.options.map(opt => {
-                  const sel = question.type === 'multi'
-                    ? (answers[question.id] || []).includes(opt.label)
-                    : answers[question.id] === opt.label
-                  return (
-                    <div key={opt.label}
-                      className={`${styles.optCard} ${sel ? styles.optSelected : ''}`}
-                      onClick={() => toggleAnswer(question.id, opt.label)}>
-                      <div className={styles.optTop}>
-                        <div className={`${styles.optCheck} ${sel ? styles.optCheckFilled : ''}`}>
-                          {sel && (question.type === 'multi'
-                            ? <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
-                            : <div className={styles.optDot} />
-                          )}
+            {section.questions.map((question, qIndex) => (
+              <div key={question.id} className={styles.questionBlock} style={{ marginBottom: qIndex === section.questions.length - 1 ? 0 : '48px' }}>
+                <h2 className={styles.qTitle}>{question.text}</h2>
+                <p className={styles.qSub}>{question.sub}</p>
+
+                {(question.type === 'options' || question.type === 'multi') && (
+                  <div className={`${styles.optGrid} ${question.options.length > 4 ? styles.optGrid3 : ''}`}>
+                    {question.options.map(opt => {
+                      const sel = question.type === 'multi'
+                        ? (answers[question.id] || []).includes(opt.label)
+                        : answers[question.id] === opt.label
+                      return (
+                        <div key={opt.label}
+                          className={`${styles.optCard} ${sel ? styles.optSelected : ''}`}
+                          onClick={() => toggleAnswer(question.id, opt.label, question.type)}>
+                          <div className={styles.optTop}>
+                            <div className={`${styles.optCheck} ${sel ? styles.optCheckFilled : ''}`}>
+                              {sel && (question.type === 'multi'
+                                ? <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 5l2.5 2.5L8 3" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/></svg>
+                                : <div className={styles.optDot} />
+                              )}
+                            </div>
+                            <span className={styles.optLabel}>{opt.label}</span>
+                          </div>
+                          {opt.desc && <p className={styles.optDesc}>{opt.desc}</p>}
                         </div>
-                        <span className={styles.optLabel}>{opt.label}</span>
-                      </div>
-                      {opt.desc && <p className={styles.optDesc}>{opt.desc}</p>}
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-
-            {question.type === 'inputs' && (
-              <div className={styles.inputGrid}>
-                {question.fields.map(f => (
-                  <div key={f.id} className={styles.inputGroup}>
-                    <label className={styles.inputLabel}>{f.label}</label>
-                    <input className={styles.input}
-                      type="number"
-                      placeholder={f.placeholder}
-                      value={answers[f.id] || ''}
-                      onChange={e => {
-                        setShowError(false)
-                        setAnswers(a => ({ ...a, [f.id]: e.target.value }))
-                      }}
-                    />
+                      )
+                    })}
                   </div>
-                ))}
+                )}
+
+                {question.type === 'inputs' && (
+                  <div className={styles.inputGrid}>
+                    {question.fields.map(f => (
+                      <div key={f.id} className={styles.inputGroup}>
+                        <label className={styles.inputLabel}>{f.label}</label>
+                        <input className={styles.input}
+                          type="number"
+                          placeholder={f.placeholder}
+                          value={answers[f.id] || ''}
+                          onChange={e => {
+                            setShowError(false)
+                            setAnswers(a => ({ ...a, [f.id]: e.target.value }))
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            ))}
           </div>
 
           <div className={styles.footer}>
             <span className={styles.footerNote}>
-              Question {questionIdx + 1} of {section.questions.length} in this section
+              Section {sectionIdx + 1} of {SECTIONS.length}
             </span>
             <div className={styles.footerActions}>
-              {showError && <span style={{ color: '#d32f2f', fontSize: '14px', marginRight: '16px', fontWeight: 500 }}>Each question should be answered</span>}
+              {showError && <span style={{ color: '#d32f2f', fontSize: '14px', marginRight: '16px', fontWeight: 500 }}>Please answer all questions in this section</span>}
               {!isFirst && <button className="btn-secondary" onClick={handleBack}>Back</button>}
               <button className="btn-primary" onClick={handleNext} disabled={loading}>
                 {loading ? 'Processing...' : isLast ? 'View results' : 'Next'}

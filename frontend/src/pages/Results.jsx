@@ -3,11 +3,13 @@ import Navbar from '../components/Navbar'
 import styles from './Results.module.css'
 
 const getStrawStages = (stageName) => {
-  const norm = (stageName || '').toLowerCase()
+  const norm = (stageName || '').toLowerCase().replace('-', '')
   let currId = 'R'
-  if (norm.includes('early perimenopause') || norm.includes('early menopausal transition')) currId = '-2'
+  
+  if (norm.includes('postmenopause') || norm.includes('post')) currId = '+1'
+  else if (norm.includes('perimenopause') || norm.includes('peri')) currId = '-2'
   else if (norm.includes('late menopausal transition') || norm.includes('late mt')) currId = '-1'
-  else if (norm.includes('postmenopause')) currId = '+1'
+  else if (norm.includes('early perimenopause') || norm.includes('early menopausal transition')) currId = '-3'
   
   return [
     { id: 'R', short: 'R', label: 'Reproductive', current: currId === 'R' },
@@ -48,13 +50,16 @@ export default function Results() {
   const { state } = useLocation()
   
   const data = state?.data
-
+  
   if (state?.error) {
     return <div className={styles.page} style={{display:'flex',justifyContent:'center',alignItems:'center'}}>Backend is not responding. Please ensure your python server is running.</div>
   }
   if (!data) {
     return <div className={styles.page} style={{display:'flex',justifyContent:'center',alignItems:'center'}}>No results available. Please fill out the assessment first.</div>
   }
+
+  // Save to local storage for the dashboard
+  localStorage.setItem('latest_assessment', JSON.stringify(data))
 
   const stageName = data.stage_prediction || 'Reproductive'
   const confidence = data.stage_confidence ? Math.max(...Object.values(data.stage_confidence)) : 0
@@ -94,7 +99,7 @@ export default function Results() {
         </div>
 
         <div className={`card ${styles.timelineCard}`}>
-          <h3 className={styles.sectionTitle}>Your position in the STRAW+10 journey</h3>
+          <h3 className={styles.sectionTitle}>Your position in the STRAW+10 journey ({stageName})</h3>
           <div className={styles.timeline}>
             {strawStages.map((s, i) => (
               <div key={s.id} className={styles.tlItem}>
